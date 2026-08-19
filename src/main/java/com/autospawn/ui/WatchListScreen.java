@@ -35,8 +35,8 @@ public class WatchListScreen extends Screen {
 
     private static final String GITHUB_URL = "https://github.com/mushraisin";
     private static final String TELEGRAM_URL = "https://t.me/mushbarry";
-    private static final Identifier GITHUB_ICON = Identifier.of("autospawn", "textures/gui/github.png");
-    private static final Identifier TELEGRAM_ICON = Identifier.of("autospawn", "textures/gui/telegram.png");
+    private static final Identifier GITHUB_ICON = new Identifier("autospawn", "textures/gui/github.png");
+    private static final Identifier TELEGRAM_ICON = new Identifier("autospawn", "textures/gui/telegram.png");
 
     private final Screen parent;
 
@@ -221,7 +221,8 @@ public class WatchListScreen extends Screen {
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         updateAnimations(mouseX, mouseY);
-        super.render(ctx, mouseX, mouseY, delta); // фон + панель + віджети
+        drawPanel(ctx);                            // фон і панель
+        super.render(ctx, mouseX, mouseY, delta);  // віджети
         renderList(ctx, mouseX, mouseY);
     }
 
@@ -278,8 +279,7 @@ public class WatchListScreen extends Screen {
         return panelX + panelW - PAD - 22 - (maxScroll() > 0 ? 7 : 0);
     }
 
-    @Override
-    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    private void drawPanel(DrawContext ctx) {
         float eased = Theme.easeOutCubic(openAnim);
         ctx.fill(0, 0, this.width, this.height, Theme.withAlpha(0xB4000000, eased));
 
@@ -454,12 +454,12 @@ public class WatchListScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
         if (maxScroll() > 0) {
-            scrollTarget = MathHelper.clamp(scrollTarget - (float) vertical * ROW_H, 0.0f, maxScroll());
+            scrollTarget = MathHelper.clamp(scrollTarget - (float) amount * ROW_H, 0.0f, maxScroll());
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
+        return super.mouseScrolled(mouseX, mouseY, amount);
     }
 
     @Override

@@ -28,7 +28,7 @@ public class ModButton extends ButtonWidget {
     }
 
     @Override
-    protected void renderWidget(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    protected void renderButton(DrawContext ctx, int mouseX, int mouseY, float delta) {
         long now = System.nanoTime();
         float dt = Math.min(0.1f, (now - lastFrame) / 1_000_000_000.0f);
         lastFrame = now;
