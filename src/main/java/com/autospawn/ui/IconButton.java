@@ -6,7 +6,7 @@ import net.minecraft.client.gui.screen.ConfirmLinkScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.render.RenderLayer;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
@@ -79,7 +79,14 @@ public class IconButton extends ButtonWidget {
         int iconY = getY() + Math.round(-2.0f * Theme.easeOutCubic(hover) + bob - pop * 1.5f);
         int tint = Theme.mix(0xFF9DA0AD, 0xFFFFFFFF, hover);
 
-        ctx.drawTexture(RenderLayer::getGuiTextured, texture, getX(), iconY, 0.0f, 0.0f,
-                ICON, ICON, ICON, ICON, tint);
+        RenderSystem.enableBlend();
+        RenderSystem.setShaderColor(
+                ((tint >> 16) & 0xFF) / 255.0f,
+                ((tint >> 8) & 0xFF) / 255.0f,
+                (tint & 0xFF) / 255.0f,
+                ((tint >>> 24) & 0xFF) / 255.0f);
+        ctx.drawTexture(texture, getX(), iconY, 0, 0, ICON, ICON, ICON, ICON);
+        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+        RenderSystem.disableBlend();
     }
 }
