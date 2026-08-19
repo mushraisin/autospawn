@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "autospawn",
+  "version": "${version}",
+  "name": "AutoSpawn",
+  "description": "Автоматично виконує /spawn, коли вказаний у списку гравець заходить або вже є на сервері.",
+  "authors": ["mushbarry"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.autospawn.AutoSpawnClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.9",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

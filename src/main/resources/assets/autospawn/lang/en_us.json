@@ -1,0 +1,21 @@
+{
+  "key.categories.autospawn": "AutoSpawn",
+  "key.autospawn.open_menu": "Open watch list",
+
+  "screen.autospawn.title": "AutoSpawn",
+  "screen.autospawn.toggle": "Enable AutoSpawn",
+  "screen.autospawn.nick": "Player name",
+  "screen.autospawn.nick_hint": "Type a name and press Enter",
+  "screen.autospawn.add": "Add",
+  "screen.autospawn.list_caption": "Watched: %s · online: %s",
+  "screen.autospawn.row_online": "online",
+  "screen.autospawn.empty": "The list is empty",
+  "screen.autospawn.empty_hint": "Add a name in the field above",
+  "screen.autospawn.on": "Active",
+  "screen.autospawn.off": "Disabled",
+  "screen.autospawn.mode_join": "Mode: join only",
+  "screen.autospawn.mode_any": "Mode: join + online",
+  "screen.autospawn.command": "Command",
+  "screen.autospawn.command_hint": "Command (without /)",
+  "screen.autospawn.keybind_hint": "Rebind the menu key in Options → Controls → AutoSpawn"
+}

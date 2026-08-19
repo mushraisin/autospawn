@@ -1,0 +1,21 @@
+{
+  "key.categories.autospawn": "AutoSpawn",
+  "key.autospawn.open_menu": "Відкрити список гравців",
+
+  "screen.autospawn.title": "AutoSpawn",
+  "screen.autospawn.toggle": "Увімкнути AutoSpawn",
+  "screen.autospawn.nick": "Нік гравця",
+  "screen.autospawn.nick_hint": "Введи нік і натисни Enter",
+  "screen.autospawn.add": "Додати",
+  "screen.autospawn.list_caption": "У списку: %s · онлайн: %s",
+  "screen.autospawn.row_online": "онлайн",
+  "screen.autospawn.empty": "Список порожній",
+  "screen.autospawn.empty_hint": "Додай нік у полі вище",
+  "screen.autospawn.on": "Активний",
+  "screen.autospawn.off": "Вимкнений",
+  "screen.autospawn.mode_join": "Режим: лише вхід",
+  "screen.autospawn.mode_any": "Режим: вхід + онлайн",
+  "screen.autospawn.command": "Команда",
+  "screen.autospawn.command_hint": "Команда (без /)",
+  "screen.autospawn.keybind_hint": "Клавіша меню змінюється в Налаштування → Управління → AutoSpawn"
+}
