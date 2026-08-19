@@ -19,5 +19,6 @@
   "screen.autospawn.keybind_hint": "Menu key: Options → Controls → AutoSpawn",
   "screen.autospawn.mode_join_short": "Join only",
   "screen.autospawn.mode_any_short": "Join + online",
-  "screen.autospawn.keybind_hint_short": "Key: Controls → AutoSpawn"
+  "screen.autospawn.keybind_hint_short": "Key: Controls → AutoSpawn",
+  "screen.autospawn.credits": "by mushbarry"
 }

@@ -9,6 +9,7 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import org.lwjgl.glfw.GLFW;
 
@@ -30,6 +31,12 @@ public class WatchListScreen extends Screen {
     private static final int HEADER_H = 38;
     private static final int FIELD_H = 20;
     private static final int DONE_H = 22;
+    private static final int ICON_H = 20;
+
+    private static final String GITHUB_URL = "https://github.com/mushraisin";
+    private static final String TELEGRAM_URL = "https://t.me/mushbarry";
+    private static final Identifier GITHUB_ICON = Identifier.of("autospawn", "textures/gui/github.png");
+    private static final Identifier TELEGRAM_ICON = Identifier.of("autospawn", "textures/gui/telegram.png");
 
     private final Screen parent;
 
@@ -39,6 +46,8 @@ public class WatchListScreen extends Screen {
     private ModButton modeBtn;
     private ModButton doneBtn;
     private ToggleWidget enabledToggle;
+    private IconButton githubBtn;
+    private IconButton telegramBtn;
 
     // розкладка
     private int panelX;
@@ -54,6 +63,7 @@ public class WatchListScreen extends Screen {
     private int cmdW;
     private int hintY;
     private int doneY;
+    private int creditY;
     private boolean showHint;
 
     // анімації та стан
@@ -82,7 +92,7 @@ public class WatchListScreen extends Screen {
         AutoSpawnConfig cfg = AutoSpawnConfig.get();
 
         panelW = MathHelper.clamp(this.width - 40, 220, 360);
-        panelH = MathHelper.clamp(this.height - 40, 180, 300);
+        panelH = MathHelper.clamp(this.height - 40, 200, 326);
         panelX = (this.width - panelW) / 2;
         panelY = (this.height - panelH) / 2;
 
@@ -95,8 +105,9 @@ public class WatchListScreen extends Screen {
         int nameBoxW = contentW - addW - 8;
         captionY = inputY + FIELD_H + 7;
 
-        // низ: кнопка "Готово", підказка, рядок команди
-        doneY = panelY + panelH - PAD - DONE_H;
+        // низ: підпис автора з іконками, "Готово", підказка, рядок команди
+        creditY = panelY + panelH - PAD - ICON_H;
+        doneY = creditY - 8 - DONE_H;
         Text hint = Text.translatable("screen.autospawn.keybind_hint");
         Text hintShort = Text.translatable("screen.autospawn.keybind_hint_short");
         if (this.textRenderer.getWidth(hint) > contentW) {
@@ -153,6 +164,14 @@ public class WatchListScreen extends Screen {
         doneBtn = new ModButton(contentX, doneY, contentW, DONE_H,
                 Text.translatable("gui.done"), false, b -> close());
         addDrawableChild(doneBtn);
+
+        int iconRight = contentX + contentW - ICON_H;
+        telegramBtn = new IconButton(iconRight, creditY, TELEGRAM_ICON, TELEGRAM_URL,
+                Text.literal("t.me/mushbarry"), this);
+        addDrawableChild(telegramBtn);
+        githubBtn = new IconButton(iconRight - ICON_H - 4, creditY, GITHUB_ICON, GITHUB_URL,
+                Text.literal("github.com/mushraisin"), this);
+        addDrawableChild(githubBtn);
 
         clampScroll();
     }
@@ -247,6 +266,8 @@ public class WatchListScreen extends Screen {
         offset(commandField, cmdRowY + 6);
         offset(modeBtn, cmdRowY);
         offset(doneBtn, doneY);
+        offset(githubBtn, creditY);
+        offset(telegramBtn, creditY);
     }
 
     private void offset(ClickableWidget widget, int baseY) {
@@ -311,6 +332,15 @@ public class WatchListScreen extends Screen {
         if (showHint) {
             ctx.drawTextWithShadow(this.textRenderer, hintText(contentW), contentX, py + (hintY - panelY),
                     Theme.withAlpha(0xFF6E6E7C, eased));
+        }
+
+        // підпис автора
+        int creditRowY = py + (creditY - panelY);
+        ctx.fill(contentX, creditRowY - 6, px + panelW - PAD, creditRowY - 5, Theme.withAlpha(Theme.DIVIDER, eased));
+        Text by = Text.translatable("screen.autospawn.credits");
+        if (this.textRenderer.getWidth(by) < contentW - ICON_H * 2 - 12) {
+            ctx.drawTextWithShadow(this.textRenderer, by, contentX, creditRowY + 6,
+                    Theme.withAlpha(Theme.TEXT_DIM, eased));
         }
     }
 
