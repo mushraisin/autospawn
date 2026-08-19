@@ -48,7 +48,7 @@ public class ModButton extends ButtonWidget {
         if (primary) {
             fill = Theme.mix(Theme.ACCENT, Theme.ACCENT_HOVER, hover);
             border = Theme.mix(0x40000000, 0x66FFFFFF, hover);
-            textColor = Theme.ACCENT_TEXT;
+            textColor = Theme.TEXT;
         } else {
             fill = Theme.mix(Theme.BTN, Theme.BTN_HOVER, hover);
             border = Theme.mix(Theme.PANEL_BORDER, Theme.ACCENT_SOFT, hover);

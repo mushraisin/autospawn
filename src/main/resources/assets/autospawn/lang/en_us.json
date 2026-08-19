@@ -1,7 +1,6 @@
 {
   "key.categories.autospawn": "AutoSpawn",
   "key.autospawn.open_menu": "Open watch list",
-
   "screen.autospawn.title": "AutoSpawn",
   "screen.autospawn.toggle": "Enable AutoSpawn",
   "screen.autospawn.nick": "Player name",
@@ -17,5 +16,8 @@
   "screen.autospawn.mode_any": "Mode: join + online",
   "screen.autospawn.command": "Command",
   "screen.autospawn.command_hint": "Command (without /)",
-  "screen.autospawn.keybind_hint": "Rebind the menu key in Options → Controls → AutoSpawn"
+  "screen.autospawn.keybind_hint": "Menu key: Options → Controls → AutoSpawn",
+  "screen.autospawn.mode_join_short": "Join only",
+  "screen.autospawn.mode_any_short": "Join + online",
+  "screen.autospawn.keybind_hint_short": "Key: Controls → AutoSpawn"
 }

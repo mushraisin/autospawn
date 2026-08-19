@@ -4,6 +4,7 @@ import com.autospawn.AutoSpawnClient;
 import com.autospawn.AutoSpawnConfig;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundEvents;
@@ -18,13 +19,17 @@ import java.util.Set;
 /**
  * Меню списку гравців: скруглена панель, плавна поява, список зі скролом,
  * анімовані перемикачі та індикатори "онлайн" у реальному часі.
+ *
+ * Уся розкладка обчислюється від розміру панелі, а панель — від розміру вікна,
+ * тож меню лишається цілим на будь-якому масштабі GUI та роздільності екрана.
  */
 public class WatchListScreen extends Screen {
 
-    private static final int PANEL_W = 340;
-    private static final int PANEL_H = 288;
     private static final int ROW_H = 24;
     private static final int PAD = 12;
+    private static final int HEADER_H = 38;
+    private static final int FIELD_H = 20;
+    private static final int DONE_H = 22;
 
     private final Screen parent;
 
@@ -35,11 +40,23 @@ public class WatchListScreen extends Screen {
     private ModButton doneBtn;
     private ToggleWidget enabledToggle;
 
+    // розкладка
     private int panelX;
     private int panelY;
+    private int panelW;
+    private int panelH;
+    private int inputY;
+    private int captionY;
     private int listTop;
     private int listBottom;
+    private int cmdLabelY;
+    private int cmdRowY;
+    private int cmdW;
+    private int hintY;
+    private int doneY;
+    private boolean showHint;
 
+    // анімації та стан
     private float openAnim;
     private float scroll;
     private float scrollTarget;
@@ -64,14 +81,41 @@ public class WatchListScreen extends Screen {
     protected void init() {
         AutoSpawnConfig cfg = AutoSpawnConfig.get();
 
-        panelX = (this.width - PANEL_W) / 2;
-        panelY = Math.max(8, (this.height - PANEL_H) / 2);
-        listTop = panelY + 68;
-        listBottom = panelY + 196;
+        panelW = MathHelper.clamp(this.width - 40, 220, 360);
+        panelH = MathHelper.clamp(this.height - 40, 180, 300);
+        panelX = (this.width - panelW) / 2;
+        panelY = (this.height - panelH) / 2;
+
+        int contentW = panelW - PAD * 2;
+        int contentX = panelX + PAD;
+
+        // верх: поле вводу + "Додати"
+        inputY = panelY + HEADER_H + 8;
+        int addW = MathHelper.clamp(this.textRenderer.getWidth(Text.translatable("screen.autospawn.add")) + 18, 46, 80);
+        int nameBoxW = contentW - addW - 8;
+        captionY = inputY + FIELD_H + 7;
+
+        // низ: кнопка "Готово", підказка, рядок команди
+        doneY = panelY + panelH - PAD - DONE_H;
+        Text hint = Text.translatable("screen.autospawn.keybind_hint");
+        Text hintShort = Text.translatable("screen.autospawn.keybind_hint_short");
+        if (this.textRenderer.getWidth(hint) > contentW) {
+            hint = hintShort;
+        }
+        showHint = this.textRenderer.getWidth(hint) <= contentW;
+        hintY = doneY - 13;
+        cmdRowY = (showHint ? hintY : doneY) - 6 - FIELD_H;
+        cmdLabelY = cmdRowY - 11;
+
+        cmdW = MathHelper.clamp((contentW - 8) * 44 / 100, 70, 160);
+        int modeW = contentW - cmdW - 8;
+
+        listTop = captionY + 12;
+        listBottom = Math.max(listTop + ROW_H, cmdLabelY - 8);
 
         rowHover = new float[cfg.players.size()];
 
-        enabledToggle = new ToggleWidget(panelX + PANEL_W - PAD - 38, panelY + 11, 38, 16,
+        enabledToggle = new ToggleWidget(panelX + panelW - PAD - 38, panelY + 11, 38, 16,
                 Text.translatable("screen.autospawn.toggle"), () -> AutoSpawnConfig.get().enabled,
                 b -> {
                     cfg.enabled = !cfg.enabled;
@@ -79,18 +123,18 @@ public class WatchListScreen extends Screen {
                 });
         addDrawableChild(enabledToggle);
 
-        nameField = new TextFieldWidget(this.textRenderer, panelX + PAD + 5, panelY + 46, 230, 12,
+        nameField = new TextFieldWidget(this.textRenderer, contentX + 5, inputY + 6, nameBoxW - 10, 12,
                 Text.translatable("screen.autospawn.nick"));
         nameField.setMaxLength(32);
         nameField.setDrawsBackground(false);
-        nameField.setPlaceholder(Text.translatable("screen.autospawn.nick_hint").styled(s -> s.withColor(Theme.TEXT_DIM & 0xFFFFFF)));
+        nameField.setPlaceholder(placeholder(nameBoxW - 10));
         addDrawableChild(nameField);
 
-        addBtn = new ModButton(panelX + PANEL_W - PAD - 68, panelY + 40, 68, 20,
+        addBtn = new ModButton(contentX + nameBoxW + 8, inputY, addW, FIELD_H,
                 Text.translatable("screen.autospawn.add"), true, b -> addCurrentName());
         addDrawableChild(addBtn);
 
-        commandField = new TextFieldWidget(this.textRenderer, panelX + PAD + 5, panelY + 218, 140, 12,
+        commandField = new TextFieldWidget(this.textRenderer, contentX + 5, cmdRowY + 6, cmdW - 10, 12,
                 Text.translatable("screen.autospawn.command"));
         commandField.setMaxLength(64);
         commandField.setDrawsBackground(false);
@@ -98,25 +142,44 @@ public class WatchListScreen extends Screen {
         commandField.setChangedListener(text -> cfg.command = text);
         addDrawableChild(commandField);
 
-        modeBtn = new ModButton(panelX + 170, panelY + 212, PANEL_W - 170 - PAD, 20,
-                modeText(cfg), false, b -> {
+        modeBtn = new ModButton(contentX + cmdW + 8, cmdRowY, modeW, FIELD_H,
+                modeText(cfg, modeW), false, b -> {
             cfg.triggerOnlyOnJoin = !cfg.triggerOnlyOnJoin;
             cfg.save();
-            modeBtn.setMessage(modeText(cfg));
+            modeBtn.setMessage(modeText(cfg, modeBtn.getWidth()));
         });
         addDrawableChild(modeBtn);
 
-        doneBtn = new ModButton(panelX + PAD, panelY + 252, PANEL_W - PAD * 2, 22,
+        doneBtn = new ModButton(contentX, doneY, contentW, DONE_H,
                 Text.translatable("gui.done"), false, b -> close());
         addDrawableChild(doneBtn);
 
         clampScroll();
     }
 
-    private Text modeText(AutoSpawnConfig cfg) {
-        return cfg.triggerOnlyOnJoin
-                ? Text.translatable("screen.autospawn.mode_join")
-                : Text.translatable("screen.autospawn.mode_any");
+    /** Плейсхолдер, який гарантовано вміщується в поле. */
+    private Text placeholder(int maxW) {
+        Text full = Text.translatable("screen.autospawn.nick_hint");
+        Text shortText = Text.translatable("screen.autospawn.nick");
+        Text chosen = this.textRenderer.getWidth(full) <= maxW ? full : shortText;
+        return chosen.copy().styled(s -> s.withColor(Theme.TEXT_DIM & 0xFFFFFF));
+    }
+
+    /** Довга назва режиму, якщо вміщується, інакше коротка. */
+    private Text modeText(AutoSpawnConfig cfg, int buttonW) {
+        Text full = Text.translatable(cfg.triggerOnlyOnJoin
+                ? "screen.autospawn.mode_join" : "screen.autospawn.mode_any");
+        if (this.textRenderer.getWidth(full) <= buttonW - 10) {
+            return full;
+        }
+        return Text.translatable(cfg.triggerOnlyOnJoin
+                ? "screen.autospawn.mode_join_short" : "screen.autospawn.mode_any_short");
+    }
+
+    private Text hintText(int maxW) {
+        Text full = Text.translatable("screen.autospawn.keybind_hint");
+        if (this.textRenderer.getWidth(full) <= maxW) return full;
+        return Text.translatable("screen.autospawn.keybind_hint_short");
     }
 
     private void addCurrentName() {
@@ -160,12 +223,11 @@ public class WatchListScreen extends Screen {
             rowHover = new float[cfg.players.size()];
         }
 
-        // що під курсором
         hoveredRow = -1;
         hoveredRemove = false;
         int listT = listTop + animOffset;
         int listB = listBottom + animOffset;
-        if (mouseY >= listT && mouseY < listB && mouseX >= panelX + PAD && mouseX <= panelX + PANEL_W - PAD) {
+        if (mouseY >= listT && mouseY < listB && mouseX >= panelX + PAD && mouseX <= panelX + panelW - PAD) {
             int index = (int) ((mouseY - listT + scroll) / ROW_H);
             if (index >= 0 && index < cfg.players.size()) {
                 hoveredRow = index;
@@ -180,19 +242,19 @@ public class WatchListScreen extends Screen {
 
         // віджети їдуть разом із панеллю
         offset(enabledToggle, panelY + 11);
-        offset(nameField, panelY + 46);
-        offset(addBtn, panelY + 40);
-        offset(commandField, panelY + 218);
-        offset(modeBtn, panelY + 212);
-        offset(doneBtn, panelY + 252);
+        offset(nameField, inputY + 6);
+        offset(addBtn, inputY);
+        offset(commandField, cmdRowY + 6);
+        offset(modeBtn, cmdRowY);
+        offset(doneBtn, doneY);
     }
 
-    private void offset(net.minecraft.client.gui.widget.ClickableWidget widget, int baseY) {
+    private void offset(ClickableWidget widget, int baseY) {
         if (widget != null) widget.setY(baseY + animOffset);
     }
 
     private int removeX() {
-        return panelX + PANEL_W - PAD - 24 - (maxScroll() > 0 ? 6 : 0);
+        return panelX + panelW - PAD - 22 - (maxScroll() > 0 ? 7 : 0);
     }
 
     @Override
@@ -203,51 +265,53 @@ public class WatchListScreen extends Screen {
         AutoSpawnConfig cfg = AutoSpawnConfig.get();
         int px = panelX;
         int py = panelY + animOffset;
+        int contentX = px + PAD;
+        int contentW = panelW - PAD * 2;
 
-        Theme.shadow(ctx, px, py, PANEL_W, PANEL_H, 8, 5, eased);
-        Theme.panel(ctx, px, py, PANEL_W, PANEL_H, 8, Theme.withAlpha(Theme.PANEL, eased), Theme.withAlpha(Theme.PANEL_BORDER, eased));
+        Theme.shadow(ctx, px, py, panelW, panelH, 8, 5, eased);
+        Theme.panel(ctx, px, py, panelW, panelH, 8, Theme.withAlpha(Theme.PANEL, eased), Theme.withAlpha(Theme.PANEL_BORDER, eased));
 
         // шапка
-        Theme.roundRect(ctx, px + 1, py + 1, PANEL_W - 2, 36, 7, Theme.withAlpha(Theme.HEADER, eased));
-        ctx.fill(px + 1, py + 33, px + PANEL_W - 1, py + 37, Theme.withAlpha(Theme.HEADER, eased));
-        ctx.fill(px + PAD, py + 37, px + PANEL_W - PAD, py + 38, Theme.withAlpha(Theme.DIVIDER, eased));
+        Theme.roundRect(ctx, px + 1, py + 1, panelW - 2, HEADER_H - 4, 7, Theme.withAlpha(Theme.HEADER, eased));
+        ctx.fill(px + 1, py + HEADER_H - 8, px + panelW - 1, py + HEADER_H - 1, Theme.withAlpha(Theme.HEADER, eased));
+        ctx.fill(contentX, py + HEADER_H - 1, px + panelW - PAD, py + HEADER_H, Theme.withAlpha(Theme.DIVIDER, eased));
 
-        // акцентна риска під заголовком, що "виїжджає"
         int titleW = this.textRenderer.getWidth(this.title);
-        int barW = Math.round(titleW * eased);
-        ctx.fill(px + PAD, py + 26, px + PAD + barW, py + 27, Theme.withAlpha(Theme.ACCENT, eased));
+        ctx.fill(contentX, py + 26, contentX + Math.round(titleW * eased), py + 27, Theme.withAlpha(Theme.ACCENT, eased));
+        ctx.drawTextWithShadow(this.textRenderer, this.title, contentX, py + 14, Theme.withAlpha(Theme.TEXT, eased));
 
-        ctx.drawTextWithShadow(this.textRenderer, this.title, px + PAD, py + 14, Theme.withAlpha(Theme.TEXT, eased));
-
-        // статус праворуч від перемикача
-        Text status = cfg.enabled
-                ? Text.translatable("screen.autospawn.on")
-                : Text.translatable("screen.autospawn.off");
-        int statusColor = cfg.enabled ? Theme.GREEN : Theme.OFFLINE;
-        int statusX = px + PANEL_W - PAD - 38 - 6 - this.textRenderer.getWidth(status);
-        ctx.drawTextWithShadow(this.textRenderer, status, statusX, py + 15, Theme.withAlpha(statusColor, eased));
+        // статус — лише якщо не налазить на заголовок
+        Text status = Text.translatable(cfg.enabled ? "screen.autospawn.on" : "screen.autospawn.off");
+        int statusW = this.textRenderer.getWidth(status);
+        int statusX = px + panelW - PAD - 38 - 6 - statusW;
+        if (statusX > contentX + titleW + 8) {
+            ctx.drawTextWithShadow(this.textRenderer, status, statusX, py + 15,
+                    Theme.withAlpha(cfg.enabled ? Theme.GREEN : Theme.OFFLINE, eased));
+        }
 
         // поле вводу ніка
-        Theme.panel(ctx, px + PAD, py + 40, 230 + 10, 20, 4,
+        int addW = addBtn == null ? 60 : addBtn.getWidth();
+        Theme.panel(ctx, contentX, py + (inputY - panelY), contentW - addW - 8, FIELD_H, 4,
                 Theme.withAlpha(Theme.FIELD, eased),
                 Theme.withAlpha(nameField != null && nameField.isFocused() ? Theme.ACCENT_SOFT : Theme.FIELD_BORDER, eased));
 
         // підпис списку
-        int watched = cfg.players.size();
-        int online = countOnline(cfg);
-        Text caption = Text.translatable("screen.autospawn.list_caption", watched, online);
-        ctx.drawTextWithShadow(this.textRenderer, caption, px + PAD, py + 66 - 8, Theme.withAlpha(Theme.TEXT_DIM, eased));
+        Text caption = Text.translatable("screen.autospawn.list_caption", cfg.players.size(), countOnline(cfg));
+        ctx.drawTextWithShadow(this.textRenderer, caption, contentX, py + (captionY - panelY),
+                Theme.withAlpha(Theme.TEXT_DIM, eased));
 
-        // підпис і поле команди
+        // рядок команди
         ctx.drawTextWithShadow(this.textRenderer, Text.translatable("screen.autospawn.command_hint"),
-                px + PAD, py + 202, Theme.withAlpha(Theme.TEXT_DIM, eased));
-        Theme.panel(ctx, px + PAD, py + 212, 150, 20, 4,
+                contentX, py + (cmdLabelY - panelY), Theme.withAlpha(Theme.TEXT_DIM, eased));
+        Theme.panel(ctx, contentX, py + (cmdRowY - panelY), cmdW, FIELD_H, 4,
                 Theme.withAlpha(Theme.FIELD, eased),
                 Theme.withAlpha(commandField != null && commandField.isFocused() ? Theme.ACCENT_SOFT : Theme.FIELD_BORDER, eased));
 
         // підказка про бінд
-        ctx.drawTextWithShadow(this.textRenderer, Text.translatable("screen.autospawn.keybind_hint"),
-                px + PAD, py + 240, Theme.withAlpha(0xFF6E6E7C, eased));
+        if (showHint) {
+            ctx.drawTextWithShadow(this.textRenderer, hintText(contentW), contentX, py + (hintY - panelY),
+                    Theme.withAlpha(0xFF6E6E7C, eased));
+        }
     }
 
     private int countOnline(AutoSpawnConfig cfg) {
@@ -269,27 +333,25 @@ public class WatchListScreen extends Screen {
         int listT = listTop + animOffset;
         int listB = listBottom + animOffset;
         int rowX = panelX + PAD;
-        int rowW = PANEL_W - PAD * 2 - (maxScroll() > 0 ? 6 : 0);
+        int rowW = panelW - PAD * 2 - (maxScroll() > 0 ? 7 : 0);
 
         if (players.isEmpty()) {
-            Text empty = Text.translatable("screen.autospawn.empty");
-            Text hint = Text.translatable("screen.autospawn.empty_hint");
             int cy = (listT + listB) / 2;
-            ctx.drawCenteredTextWithShadow(this.textRenderer, empty, panelX + PANEL_W / 2, cy - 10,
-                    Theme.withAlpha(Theme.TEXT_DIM, eased));
-            ctx.drawCenteredTextWithShadow(this.textRenderer, hint, panelX + PANEL_W / 2, cy + 2,
-                    Theme.withAlpha(0xFF63636E, eased));
+            ctx.drawCenteredTextWithShadow(this.textRenderer, Text.translatable("screen.autospawn.empty"),
+                    panelX + panelW / 2, cy - 10, Theme.withAlpha(Theme.TEXT_DIM, eased));
+            ctx.drawCenteredTextWithShadow(this.textRenderer, Text.translatable("screen.autospawn.empty_hint"),
+                    panelX + panelW / 2, cy + 2, Theme.withAlpha(0xFF63636E, eased));
             return;
         }
 
-        Set<String> online = AutoSpawnClient.instance() == null ? Set.of() : AutoSpawnClient.instance().onlineWatched();
+        Set<String> online = AutoSpawnClient.instance() == null
+                ? Set.<String>of() : AutoSpawnClient.instance().onlineWatched();
 
-        ctx.enableScissor(panelX + 1, listT, panelX + PANEL_W - 1, listB);
+        ctx.enableScissor(panelX + 1, listT, panelX + panelW - 1, listB);
         for (int i = 0; i < players.size(); i++) {
             int rowY = Math.round(listT - scroll + i * ROW_H);
             if (rowY + ROW_H < listT || rowY > listB) continue;
 
-            // поява рядків із затримкою "сходинкою"
             float appear = Theme.clamp01((eased - i * 0.05f) / 0.45f);
             if (appear <= 0.0f) continue;
             float appearEase = Theme.easeOutCubic(appear);
@@ -299,55 +361,51 @@ public class WatchListScreen extends Screen {
             boolean isOnline = online.contains(name.toLowerCase(Locale.ROOT));
             float hover = i < rowHover.length ? rowHover[i] : 0.0f;
 
-            int bg = Theme.mix(Theme.ROW, Theme.ROW_HOVER, hover);
-            Theme.roundRect(ctx, rowX + slide, rowY + 1, rowW, ROW_H - 3, 4, Theme.withAlpha(bg, appearEase));
+            Theme.roundRect(ctx, rowX + slide, rowY + 1, rowW, ROW_H - 3, 4,
+                    Theme.withAlpha(Theme.mix(Theme.ROW, Theme.ROW_HOVER, hover), appearEase));
 
-            // акцентна смужка ліворуч у виділеного рядка
             if (hover > 0.01f) {
                 Theme.roundRect(ctx, rowX + slide, rowY + 1, 2, ROW_H - 3, 1,
                         Theme.withAlpha(Theme.ACCENT, hover * appearEase));
             }
 
-            // індикатор онлайну (пульсує)
-            int dotColor;
-            if (isOnline) {
-                float pulse = 0.65f + 0.35f * MathHelper.sin(time * 3.2f);
-                dotColor = Theme.withAlpha(Theme.GREEN, pulse * appearEase);
-            } else {
-                dotColor = Theme.withAlpha(Theme.OFFLINE, appearEase);
-            }
-            Theme.dot(ctx, rowX + slide + 12, rowY + ROW_H / 2 - 1, 3, dotColor);
+            int dotColor = isOnline
+                    ? Theme.withAlpha(Theme.GREEN, (0.65f + 0.35f * MathHelper.sin(time * 3.2f)) * appearEase)
+                    : Theme.withAlpha(Theme.OFFLINE, appearEase);
+            Theme.dot(ctx, rowX + slide + 11, rowY + ROW_H / 2 - 1, 3, dotColor);
 
-            // нік
-            int nameMax = rowW - 60;
-            String shown = this.textRenderer.trimToWidth(name, nameMax);
-            ctx.drawTextWithShadow(this.textRenderer, shown, rowX + slide + 22, rowY + 7,
-                    Theme.withAlpha(isOnline ? Theme.TEXT : 0xFFC9C9D4, appearEase));
-
-            // статус + кнопка видалення
+            // статус праворуч (малюємо першим, щоб знати, скільки лишилось під нік)
+            int rightLimit = removeX() - 6;
             if (isOnline) {
                 Text on = Text.translatable("screen.autospawn.row_online");
                 int w = this.textRenderer.getWidth(on);
-                ctx.drawTextWithShadow(this.textRenderer, on, removeX() - 8 - w, rowY + 7,
-                        Theme.withAlpha(Theme.GREEN, 0.75f * appearEase));
+                if (rightLimit - w > rowX + 60) {
+                    ctx.drawTextWithShadow(this.textRenderer, on, rightLimit - w + slide, rowY + 7,
+                            Theme.withAlpha(Theme.GREEN, 0.75f * appearEase));
+                    rightLimit -= w + 6;
+                }
             }
 
+            int nameX = rowX + slide + 20;
+            String shown = this.textRenderer.trimToWidth(name, Math.max(16, rightLimit - nameX));
+            ctx.drawTextWithShadow(this.textRenderer, shown, nameX, rowY + 7,
+                    Theme.withAlpha(isOnline ? Theme.TEXT : 0xFFC9C9D4, appearEase));
+
             boolean hoverX = i == hoveredRow && hoveredRemove;
-            int xBtnColor = Theme.mix(0x00000000, 0x66F87171, hoverX ? removeHover : 0.0f);
-            Theme.roundRect(ctx, removeX() + slide, rowY + 4, 18, ROW_H - 9, 3, Theme.withAlpha(xBtnColor, appearEase));
+            Theme.roundRect(ctx, removeX() + slide, rowY + 4, 18, ROW_H - 9, 3,
+                    Theme.withAlpha(Theme.mix(0x00000000, 0x66F87171, hoverX ? removeHover : 0.0f), appearEase));
             ctx.drawCenteredTextWithShadow(this.textRenderer, Text.literal("✕"),
                     removeX() + slide + 9, rowY + 8,
                     Theme.withAlpha(hoverX ? 0xFFFFFFFF : Theme.RED, appearEase));
         }
         ctx.disableScissor();
 
-        // скролбар
         int max = maxScroll();
         if (max > 0) {
-            int trackX = panelX + PANEL_W - PAD - 4;
+            int trackX = panelX + panelW - PAD - 4;
             int trackH = listB - listT;
             Theme.roundRect(ctx, trackX, listT, 3, trackH, 1, Theme.withAlpha(0x1AFFFFFF, eased));
-            int thumbH = Math.max(20, Math.round(trackH * (float) trackH / (players.size() * ROW_H)));
+            int thumbH = MathHelper.clamp(Math.round(trackH * (float) trackH / (players.size() * ROW_H)), 16, trackH);
             int thumbY = listT + Math.round((trackH - thumbH) * (scroll / max));
             Theme.roundRect(ctx, trackX, thumbY, 3, thumbH, 1, Theme.withAlpha(Theme.ACCENT, 0.85f * eased));
         }
@@ -394,10 +452,9 @@ public class WatchListScreen extends Screen {
             }
         }
 
-        int max = maxScroll();
-        if (button == 0 && max > 0) {
-            int trackX = panelX + PANEL_W - PAD - 4;
-            if (mouseX >= trackX - 2 && mouseX <= trackX + 5
+        if (button == 0 && maxScroll() > 0) {
+            int trackX = panelX + panelW - PAD - 4;
+            if (mouseX >= trackX - 3 && mouseX <= trackX + 6
                     && mouseY >= listTop + animOffset && mouseY <= listBottom + animOffset) {
                 draggingScrollbar = true;
                 dragScrollbar(mouseY);
@@ -419,7 +476,7 @@ public class WatchListScreen extends Screen {
 
     private void dragScrollbar(double mouseY) {
         int listT = listTop + animOffset;
-        int trackH = listBottom - listTop;
+        int trackH = Math.max(1, listBottom - listTop);
         float t = (float) ((mouseY - listT) / trackH);
         scrollTarget = MathHelper.clamp(t * maxScroll(), 0.0f, maxScroll());
         scroll = scrollTarget;
@@ -438,7 +495,6 @@ public class WatchListScreen extends Screen {
             click();
             return true;
         }
-        // повторне натискання біндa закриває меню, якщо не набираємо текст
         if (!nameField.isFocused() && !commandField.isFocused()
                 && AutoSpawnClient.openMenuKey() != null
                 && AutoSpawnClient.openMenuKey().matchesKey(keyCode, scanCode)) {
